@@ -27,12 +27,19 @@ path_to_add := $(addsuffix /bin,$(subst :,/bin:,$(GOPATH))):$(PWD)/tools/bin
 export PATH := $(path_to_add):$(PATH)
 
 GO              := GO111MODULE=on go
-GOBUILD         := $(GO) build $(BUILD_FLAG) -tags codes
+GOBUILD         := $(GO) build -trimpath $(BUILD_FLAG) -tags codes
 GOBUILDCOVERAGE := GOPATH=$(GOPATH) cd tidb-server; $(GO) test -coverpkg="../..." -c .
 GOTEST          := $(GO) test -p $(P)
 OVERALLS        := GO111MODULE=on overalls
 STATICCHECK     := GO111MODULE=on staticcheck
 TIDB_EDITION    ?= Community
+
+DATE_FMT = +%Y-%m-%d %I:%M:%S
+ifdef SOURCE_DATE_EPOCH
+    BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u "$(DATE_FMT)")
+else
+    BUILD_DATE ?= $(shell date "$(DATE_FMT)")
+endif
 
 # Ensure TIDB_EDITION is set to Community or Enterprise before running build process.
 ifneq "$(TIDB_EDITION)" "Community"
@@ -61,7 +68,7 @@ FAILPOINT_ENABLE  := find $$PWD/ -type d | grep -vE "(\.git|tools)" | xargs tool
 FAILPOINT_DISABLE := find $$PWD/ -type d | grep -vE "(\.git|tools)" | xargs tools/bin/failpoint-ctl disable
 
 LDFLAGS += -X "github.com/pingcap/tidb/parser/mysql.TiDBReleaseVersion=$(shell git describe --tags --dirty --always)"
-LDFLAGS += -X "github.com/pingcap/tidb/util/versioninfo.TiDBBuildTS=$(shell date -u '+%Y-%m-%d %H:%M:%S')"
+LDFLAGS += -X "github.com/pingcap/tidb/util/versioninfo.TiDBBuildTS=$(BUILD_DATE)"
 LDFLAGS += -X "github.com/pingcap/tidb/util/versioninfo.TiDBGitHash=$(shell git rev-parse HEAD)"
 LDFLAGS += -X "github.com/pingcap/tidb/util/versioninfo.TiDBGitBranch=$(shell git rev-parse --abbrev-ref HEAD)"
 LDFLAGS += -X "github.com/pingcap/tidb/util/versioninfo.TiDBEdition=$(TIDB_EDITION)"
@@ -104,7 +111,7 @@ DUMPLING_BIN        := bin/dumpling
 DUMPLING_CHECKER := awk '{ print } END { if (NR > 0) { exit 1 } }'
 
 DUMPLING_LDFLAGS += -X "github.com/pingcap/tidb/dumpling/cli.ReleaseVersion=$(shell git describe --tags --dirty='-dev')"
-DUMPLING_LDFLAGS += -X "github.com/pingcap/tidb/dumpling/cli.BuildTimestamp=$(shell date -u '+%Y-%m-%d %I:%M:%S')"
+DUMPLING_LDFLAGS += -X "github.com/pingcap/tidb/dumpling/cli.BuildTimestamp=$(BUILD_DATE)"
 DUMPLING_LDFLAGS += -X "github.com/pingcap/tidb/dumpling/cli.GitHash=$(shell git rev-parse HEAD)"
 DUMPLING_LDFLAGS += -X "github.com/pingcap/tidb/dumpling/cli.GitBranch=$(shell git rev-parse --abbrev-ref HEAD)"
 DUMPLING_LDFLAGS += -X "github.com/pingcap/tidb/dumpling/cli.GoVersion=$(shell go version)"
